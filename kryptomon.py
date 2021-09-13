@@ -7,7 +7,7 @@ from requests import get
 
 # 1st week starting block: 10854918
 
-API_KEY = "W7T86S5W1EMKD4CGNPIU6QKSAUFQS5TADX"
+API_KEY = "API_KEY"
 ADDRESS = "0x50a1b4C905834291398a8dD140fa4A9AA9521f07"  # Kryptomon wallet
 
 
