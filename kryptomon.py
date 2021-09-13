@@ -80,9 +80,7 @@ def victory_probability(summary, add=None):
         summary["new"] = int(add)
     pool = sum([[who] * tickets for who, tickets in summary.items()], [])
     eggs_drop = round(len(summary) / 10)
-    scenarios = [
-        data for data in combinations(pool, eggs_drop) if len(data) == len(set(data))
-    ]
+    scenarios = [data for data in combinations(pool, eggs_drop)]
     unique_better = {
         [who for who, t in summary.items() if t == ticket][0]: ticket
         for ticket in set(summary.values())
