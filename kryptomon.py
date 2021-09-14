@@ -1,54 +1,72 @@
+from argparse import ArgumentParser
+from datetime import datetime
 from itertools import combinations
 from re import match
-from sys import argv
 
 from colorifix.colorifix import paint
 from requests import get
 
-# 1st week starting block: 10854918
-
 API_KEY = "API_KEY"
 ADDRESS = "0x50a1b4C905834291398a8dD140fa4A9AA9521f07"  # Kryptomon wallet
+LOTTERIES_TIMESTAMP = [
+    1631444400,
+    1632049200,
+    1632654000,
+    1633258800,
+    1633863600,
+    1634468400,
+    1635073200,
+    1635681600,
+    1636286400,
+]
 
 
-def get_transactions():
+def is_right_lottery(block_timestamp, week):
+    """Check if a block is in the correct lottery"""
+    return LOTTERIES_TIMESTAMP[week - 1] <= block_timestamp <= LOTTERIES_TIMESTAMP[week]
+
+
+def get_transactions(week):
     """Get all last kryptomon transactions"""
+    if not week:
+        now = datetime.timestamp(datetime.now())
+        week = max(
+            [i for i, time in enumerate(LOTTERIES_TIMESTAMP, 1) if now - time > 0]
+        )
     params = {
         "module": "account",
         "action": "txlist",
         "address": ADDRESS,
-        "startblock": argv[1],
-        "sort": "asc",
+        "sort": "desc",
         "apikey": API_KEY,
     }
     response = get("https://api.bscscan.com/api", params=params).json().get("result")
     if isinstance(response, str):
-        paint(f"[#white]Ops, somethig went wrong!\n[#red]{response}", True)
-        exit(-1)
+        paint(f"[#white]Ops, somethig went wrong!\n[#red]{response}\n", True)
+        exit()
     lottery = [
         (int(data.get("blockNumber")), data.get("from"))
         for data in response
         if match("0x3fd43098", data.get("input"))
+        and is_right_lottery(int(data.get("timeStamp"), 0), week)
     ]
-    return lottery
+    return week, lottery
 
 
 def get_tickets_blocks(blocks):
     """Get data from transactions block"""
-    start, end = blocks[0], blocks[-1]
     params = {
         "module": "logs",
         "action": "getLogs",
-        "fromBlock": start,
-        "toBlock": end,
+        "fromBlock": blocks[-1],
+        "toBlock": blocks[0],
+        "topic0": "0xc3d9208034e72b3cd2d1b5f1e9911ebc02e7be185fca8924062b57bd5464afd4",
         "address": ADDRESS,
         "apikey": API_KEY,
     }
     response = get("https://api.bscscan.com/api", params=params).json().get("result")
     return {
-        int(data.get("blockNumber"), 0): int(data.get("data"), 0)
-        for data in response
-        if int(data.get("blockNumber"), 0) in blocks
+        int(data.get("blockNumber"), 0): int(data.get("data"), 0) for data in response
     }
 
 
@@ -67,7 +85,7 @@ def lottery_summary(overview, victory_probabilities):
     tickets = list(overview.values())
     summary = {tck: tickets.count(tck) for tck in set(tickets)}
     return "\n".join(
-        f"> [#magenta]{players:>3}[/] player(s) bet [#green]{ticket:>3}[/] ticket(s)"
+        f"> [#magenta]{players:>3}[/] wallet(s) bet [#green]{ticket:>3}[/] ticket(s)"
         f" with [#blue]{victory_probabilities.get(ticket):>5.1%}[/] "
         "victory probability"
         for ticket, players in summary.items()
@@ -93,40 +111,64 @@ def victory_probability(summary, add=None):
     return {ticket: victory / total_scenarios for ticket, victory in probs.items()}
 
 
+def argparsing():
+    """args parsing for command line"""
+    parser = ArgumentParser(
+        prog="Kryptomon",
+        description="Get victory probabilities for Kryptomon Eggs Lottery",
+        usage=("kryptomon [-l lottery] [-t ticket_to_bet]"),
+    )
+    parser.add_argument(
+        "-l",
+        "--lottery",
+        type=int,
+        help="number of lottery week (if not specified, current lottery)",
+        default=0,
+        metavar=("LOTTERY"),
+    )
+    parser.add_argument(
+        "-t",
+        "--ticket",
+        type=int,
+        help="number of ticket to bet",
+        default=0,
+        metavar=("TICKETS"),
+    )
+    return parser
+
+
 def main():
-    if not (1 < len(argv) < 4):
-        paint(
-            "[#red @bold]USAGE[/@]: python kryptomon.py BLOCK_NUMBER (TICKET_TO_BET)\n"
-            "Example: pyhthon kryptomon.py 10854918\n[#white]Check [@underline]https://"
-            "bscscan.com/txs?a=0x50a1b4C905834291398a8dD140fa4A9AA9521f07[/@] for "
-            "block number",
-            True,
-        )
+    parser = argparsing()
+    args = parser.parse_args()
+    print()
+    if not (0 <= args.lottery <= 8):
+        paint("[#red]Week MUST be between 1 and 8!\n", True)
         exit()
-    lottery = get_transactions()
+    week, lottery = get_transactions(args.lottery)
     message = (
-        "\n[@underline @bold #blue]Kryptomon Lottery\n\n"
-        f"[/ #white]Transactions found: [#red]{len(lottery)}"
+        "[@underline @bold #blue]Kryptomon Lottery\n"
+        f"[/]Transactions found for week [#blue @bold]{week}[/]: [#red]{len(lottery)}"
     )
     paint(message, True)
+    if not lottery:
+        paint(f"Week [#blue @bold]{week}[/] NOT started yet!\n", True)
+        exit()
     overview = lottery_overview(lottery)
     tickets, players = sum(overview.values()), len(overview)
     paint(
-        f"Tickets bet [#red]{tickets}[/] by [#red]{players}[/] players for "
+        f"Found [#red]{tickets}[/] tickets bet by [#red]{players}[/] wallet(s) for "
         f"[#red]{round(players / 10)}[/] eggs:",
         True,
     )
     paint(lottery_summary(overview, victory_probability(overview)), True)
-    print()
-    if len(argv) == 3 and argv[2].isdigit():
-        tickets = int(argv[2])
-        new_probabilities = victory_probability(overview, tickets)
+    if args.ticket > 0:
+        new_probabilities = victory_probability(overview, args.ticket)
         paint(
-            f"If you bet [#magenta]{tickets}[/] ticket(s) right now, you'll have "
-            f"[#blue]{new_probabilities.get(tickets):.1%}[/] victory probability",
+            f"# If you bet [#green]{args.ticket}[/] ticket(s) right now, you'll have "
+            f"[#blue]{new_probabilities.get(args.ticket):.1%}[/] victory probability",
             True,
         )
-        print()
+    print()
 
 
 if __name__ == "__main__":
