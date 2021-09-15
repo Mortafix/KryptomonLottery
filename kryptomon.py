@@ -80,14 +80,17 @@ def lottery_overview(lottery):
     return overview
 
 
-def lottery_summary(overview, victory_probabilities):
+def lottery_summary(overview, victory_probabilities, wallet):
     """Show current summary"""
+    if wallet:
+        ticket_own = overview.get(wallet)
     tickets = list(overview.values())
     summary = {tck: tickets.count(tck) for tck in set(tickets)}
     return "\n".join(
         f"> [#magenta]{players:>3}[/] wallet(s) bet [#green]{ticket:>3}[/] ticket(s)"
-        f" with [#blue]{victory_probabilities.get(ticket):>5.1%}[/] "
+        f" with [#blue]{victory_probabilities.get(ticket,0):>5.1%}[/] "
         "victory probability"
+        + (" [!cyan #white] YOU [/]" if ticket == ticket_own else "")
         for ticket, players in summary.items()
     )
 
@@ -134,6 +137,13 @@ def argparsing():
         default=0,
         metavar=("TICKETS"),
     )
+    parser.add_argument(
+        "-w",
+        "--wallet",
+        type=str,
+        help="personal wallet address",
+        metavar=("WALLET"),
+    )
     return parser
 
 
@@ -145,6 +155,10 @@ def main():
         paint("[#red]Week MUST be between 1 and 8!\n", True)
         exit()
     week, lottery = get_transactions(args.lottery)
+
+    # algorithm purpose
+    # lottery = lottery[:16]
+
     message = (
         "[@underline @bold #blue]Kryptomon Lottery\n"
         f"[/]Transactions found for week [#blue @bold]{week}[/]: [#red]{len(lottery)}"
@@ -160,7 +174,8 @@ def main():
         f"[#red]{round(players / 10)}[/] eggs:",
         True,
     )
-    paint(lottery_summary(overview, victory_probability(overview)), True)
+    # probabilities = victory_probability(overview)
+    paint(lottery_summary(overview, {}, wallet=args.wallet), True)
     if args.ticket > 0:
         new_probabilities = victory_probability(overview, args.ticket)
         paint(
