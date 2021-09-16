@@ -82,8 +82,7 @@ def lottery_overview(lottery):
 
 def lottery_summary(overview, victory_probabilities, wallet):
     """Show current summary"""
-    if wallet:
-        ticket_own = overview.get(wallet)
+    ticket_own = overview.get(wallet) if wallet else 0
     tickets = list(overview.values())
     summary = {tck: tickets.count(tck) for tck in set(tickets)}
     return "\n".join(
@@ -177,7 +176,7 @@ def main():
     # probabilities = victory_probability(overview)
     paint(lottery_summary(overview, {}, wallet=args.wallet), True)
     if args.ticket > 0:
-        new_probabilities = victory_probability(overview, args.ticket)
+        new_probabilities = {}  # victory_probability(overview, args.ticket)
         paint(
             f"# If you bet [#green]{args.ticket}[/] ticket(s) right now, you'll have "
             f"[#blue]{new_probabilities.get(args.ticket):.1%}[/] victory probability",
