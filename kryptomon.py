@@ -162,7 +162,7 @@ def main():
     tickets, players = sum(overview.values()), len(overview)
     paint(
         f"Found [#red]{tickets}[/] tickets bet by [#red]{players}[/] wallet(s) for "
-        f"[#red]{round(players / 10)}[/] eggs:",
+        f"[#red]{floor(players / 10)}[/] eggs:",
         True,
     )
     paint(lottery_summary(overview, my_wallet=args.wallet), True)
