@@ -1,6 +1,6 @@
 from argparse import ArgumentParser
 from datetime import datetime
-from itertools import combinations
+from math import floor
 from re import match
 
 from colorifix.colorifix import paint
@@ -42,7 +42,7 @@ def get_transactions(week):
     }
     response = get("https://api.bscscan.com/api", params=params).json().get("result")
     if isinstance(response, str):
-        paint(f"[#white]Ops, somethig went wrong!\n[#red]{response}\n", True)
+        paint(f"[#white]Ops, something went wrong!\n[#red]{response}\n", True)
         exit()
     lottery = [
         (int(data.get("blockNumber")), data.get("from"))
@@ -76,41 +76,37 @@ def lottery_overview(lottery):
     transactions = get_tickets_blocks([block for block, _ in lottery])
     for block, who in lottery:
         bet_ticket = overview.get(who, 0)
-        overview[who] = bet_ticket + transactions.get(block)
+        if block in transactions:
+            overview[who.lower()] = bet_ticket + transactions.get(block)
     return overview
 
 
-def lottery_summary(overview, victory_probabilities, wallet):
+def lottery_summary(overview, my_wallet):
     """Show current summary"""
-    ticket_own = overview.get(wallet) if wallet else 0
-    tickets = list(overview.values())
-    summary = {tck: tickets.count(tck) for tck in set(tickets)}
+    ticket_own = overview.get(my_wallet.lower()) if my_wallet else 0
+    unique_tickets, total_ticket = list(overview.values()), sum(overview.values())
+    summary = {tck: unique_tickets.count(tck) for tck in set(unique_tickets)}
     return "\n".join(
         f"> [#magenta]{players:>3}[/] wallet(s) bet [#green]{ticket:>3}[/] ticket(s)"
-        f" with [#blue]{victory_probabilities.get(ticket,0):>5.1%}[/] "
-        "victory probability"
+        f" with [#blue]{win_probability(ticket, total_ticket, len(overview)):>5.2%}[/] "
+        "winning probability"
         + (" [!cyan #white] YOU [/]" if ticket == ticket_own else "")
         for ticket, players in summary.items()
     )
 
 
-def victory_probability(summary, add=None):
-    """Calculate vicorty probabilities: combinations filtered for single victory"""
-    if add:
-        summary["new"] = int(add)
-    pool = sum([[who] * tickets for who, tickets in summary.items()], [])
-    eggs_drop = round(len(summary) / 10)
-    scenarios = [data for data in combinations(pool, eggs_drop)]
-    unique_better = {
-        [who for who, t in summary.items() if t == ticket][0]: ticket
-        for ticket in set(summary.values())
-    }
-    probs = {
-        ticket: len([0 for scenario in scenarios if player in scenario])
-        for player, ticket in unique_better.items()
-    }
-    total_scenarios = sum(probs.values())
-    return {ticket: victory / total_scenarios for ticket, victory in probs.items()}
+def win_probability(ticket_bet, total_tickets, players):
+    """Calculate a probability estimation of victory"""
+    eggs = floor(players / 10)
+    mean_tickets_bet = total_tickets / players
+    # mean estimation about total tickets burnt from other eggs
+    total_less_mean = total_tickets - (eggs * mean_tickets_bet / 2)
+    return 1 - ((total_less_mean - ticket_bet) / total_less_mean) ** eggs
+
+
+def win_probability_new_bet(ticket_bet, total_tickets, players):
+    """Same as above but with an additional bet"""
+    return win_probability(ticket_bet, total_tickets + ticket_bet, players + 1)
 
 
 def argparsing():
@@ -154,10 +150,6 @@ def main():
         paint("[#red]Week MUST be between 1 and 8!\n", True)
         exit()
     week, lottery = get_transactions(args.lottery)
-
-    # algorithm purpose
-    # lottery = lottery[:16]
-
     message = (
         "[@underline @bold #blue]Kryptomon Lottery\n"
         f"[/]Transactions found for week [#blue @bold]{week}[/]: [#red]{len(lottery)}"
@@ -173,13 +165,12 @@ def main():
         f"[#red]{round(players / 10)}[/] eggs:",
         True,
     )
-    # probabilities = victory_probability(overview)
-    paint(lottery_summary(overview, {}, wallet=args.wallet), True)
+    paint(lottery_summary(overview, my_wallet=args.wallet), True)
     if args.ticket > 0:
-        new_probabilities = {}  # victory_probability(overview, args.ticket)
+        new_prob = win_probability_new_bet(args.ticket, tickets, players)
         paint(
             f"# If you bet [#green]{args.ticket}[/] ticket(s) right now, you'll have "
-            f"[#blue]{new_probabilities.get(args.ticket):.1%}[/] victory probability",
+            f"[#blue]{new_prob:.2%}[/] winning probability",
             True,
         )
     print()
