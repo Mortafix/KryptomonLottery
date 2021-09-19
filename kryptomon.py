@@ -85,10 +85,10 @@ def lottery_summary(overview, my_wallet):
     """Show current summary"""
     ticket_own = overview.get(my_wallet.lower()) if my_wallet else 0
     unique_tickets, total_ticket = list(overview.values()), sum(overview.values())
-    summary = {tck: unique_tickets.count(tck) for tck in set(unique_tickets)}
+    summary = {tck: unique_tickets.count(tck) for tck in sorted(set(unique_tickets))}
     return "\n".join(
-        f"> [#magenta]{players:>3}[/] wallet(s) bet [#green]{ticket:>3}[/] ticket(s)"
-        f" with [#blue]{win_probability(ticket, total_ticket, len(overview)):>5.2%}[/] "
+        f"> [#magenta]{players:>3}[/] wallet(s) bet [#green]{ticket:>3}[/] ticket(s) "
+        f"with [#blue]{win_probability(ticket, total_ticket, len(overview)):>6.2%}[/] "
         "winning probability"
         + (" [!cyan #white] YOU [/]" if ticket == ticket_own else "")
         for ticket, players in summary.items()
