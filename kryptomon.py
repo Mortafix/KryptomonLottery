@@ -8,6 +8,7 @@ from requests import get
 
 API_KEY = "API_KEY"
 ADDRESS = "0x50a1b4C905834291398a8dD140fa4A9AA9521f07"  # Kryptomon wallet
+NFT_ADDRESS = "0x7a16658f04c32d2df40726e3028b600d585d99a5"  # Kryptomon NFT wallet
 LOTTERIES_TIMESTAMP = [
     1631444400,
     1632124800,
@@ -19,6 +20,8 @@ LOTTERIES_TIMESTAMP = [
     1635757200,
     1636362000,
 ]
+
+# ---- Info lottery API
 
 
 def is_right_lottery(block_timestamp, week):
@@ -70,6 +73,26 @@ def get_tickets_blocks(blocks):
     }
 
 
+def winners(lottery):
+    """Get winner from transactions"""
+    params = {
+        "module": "logs",
+        "action": "getLogs",
+        "topic0": "0xb94bf7f9302edf52a596286915a69b4b0685574cffdedd0712e3c62f2550f0ba",
+        "address": NFT_ADDRESS,
+        "apikey": API_KEY,
+    }
+    response = get("https://api.bscscan.com/api", params=params).json().get("result")
+    return {
+        "0x" + data.get("data")[-104:-64]: int(data.get("data")[-64:])
+        for data in response
+        if int(data.get("data")[2:66], 0) == lottery - 1
+    }
+
+
+# ---- Overview
+
+
 def lottery_overview(lottery):
     """Get unique wallets"""
     overview = dict()
@@ -83,16 +106,28 @@ def lottery_overview(lottery):
 
 def lottery_summary(overview, my_wallet):
     """Show current summary"""
-    ticket_own = overview.get(my_wallet.lower()) if my_wallet else 0
-    unique_tickets, total_ticket = list(overview.values()), sum(overview.values())
+    # ticket_own = overview.get(my_wallet.lower()) if my_wallet else 0
+    unique_tickets = list(overview.values())
     summary = {tck: unique_tickets.count(tck) for tck in sorted(set(unique_tickets))}
-    return "\n".join(
-        f"> [#magenta]{players:>3}[/] wallet(s) bet [#green]{ticket:>3}[/] ticket(s) "
-        f"with [#blue]{win_probability(ticket, total_ticket, len(overview)):>6.2%}[/] "
-        "winning probability"
-        + (" [!cyan #white] YOU [/]" if ticket == ticket_own else "")
-        for ticket, players in summary.items()
-    )
+    return summary
+
+
+def winner_summary(overview, winners):
+    wallets_win = [
+        (tickets, winners.get(wallet))
+        for wallet, tickets in overview.items()
+        if wallet in winners
+    ]
+    winners_by_tickets = dict()
+    for tickets, generation in sorted(wallets_win):
+        if tickets not in winners_by_tickets:
+            winners_by_tickets[tickets] = [generation]
+        else:
+            winners_by_tickets[tickets] += [generation]
+    return winners_by_tickets
+
+
+# ---- Probability
 
 
 def win_probability(ticket_bet, total_tickets, players):
@@ -109,6 +144,31 @@ def win_probability_new_bet(ticket_bet, total_tickets, players):
     return win_probability(ticket_bet, total_tickets + ticket_bet, players + 1)
 
 
+# ---- Pretty printing
+
+
+def print_summary(overview, summary, total_ticket, ticket_own):
+    string = "\n".join(
+        f"> [#magenta]{players:>3}[/] wallet(s) bet [#green]{ticket:>3}[/] ticket(s) "
+        f"with [#blue]{win_probability(ticket, total_ticket, len(overview)):>6.2%}[/] "
+        "winning probability"
+        + (" [!cyan #white] YOU [/]" if ticket == ticket_own else "")
+        for ticket, players in summary.items()
+    )
+    paint(string, True)
+
+
+def print_winners(summary, winners):
+    string = "\n".join(
+        f"> [#magenta]{len(generations):>3}[/] wallet(s) of [@bold]"
+        f"{summary.get(tickets):>3}[/] with [#green]{tickets:>3}[/] "
+        f"ticket(s) won an egg! [Gen {', '.join(map(str,generations))}]"
+        for tickets, generations in winners.items()
+    )
+    paint(string, True)
+
+
+# ---- Main
 def argparsing():
     """args parsing for command line"""
     parser = ArgumentParser(
@@ -149,6 +209,8 @@ def main():
     if not (0 <= args.lottery <= 8):
         paint("[#red]Week MUST be between 1 and 8!\n", True)
         exit()
+
+    # print transactions
     week, lottery = get_transactions(args.lottery)
     message = (
         "[@underline @bold #blue]Kryptomon Lottery\n"
@@ -158,14 +220,21 @@ def main():
     if not lottery:
         paint(f"Week [#blue @bold]{week}[/] NOT started yet!\n", True)
         exit()
+
+    # print overview
     overview = lottery_overview(lottery)
     tickets, players = sum(overview.values()), len(overview)
+    total_eggs = floor(players / 10)
     paint(
         f"Found [#red]{tickets}[/] tickets bet by [#red]{players}[/] wallet(s) for "
-        f"[#red]{floor(players / 10)}[/] eggs:",
+        f"[#red]{total_eggs}[/] eggs:",
         True,
     )
-    paint(lottery_summary(overview, my_wallet=args.wallet), True)
+    own_tickets = overview.get(args.wallet.lower()) if args.wallet else 0
+    summary = lottery_summary(overview, my_wallet=args.wallet)
+    print_summary(overview, summary, tickets, own_tickets)
+
+    # print tickets bet
     if args.ticket > 0:
         new_prob = win_probability_new_bet(args.ticket, tickets, players)
         paint(
@@ -173,6 +242,15 @@ def main():
             f"[#blue]{new_prob:.2%}[/] winning probability",
             True,
         )
+
+    # print winners
+    egg_winners = winners(week)
+    eggs_claimed = len(egg_winners)
+    if egg_winners:
+        paint("\n---- [@bold @underline]WINNERS[/] ----", True)
+        paint(f"Eggs claimed: [#red]{eggs_claimed}[/] of [@bold]{total_eggs}[/]", True)
+        winners_summary = winner_summary(overview, egg_winners)
+        print_winners(summary, winners_summary)
     print()
 
 
