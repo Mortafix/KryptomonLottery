@@ -7,7 +7,8 @@ from colorifix.colorifix import paint
 from requests import get
 
 API_KEY = "API_KEY"
-ADDRESS = "0x50a1b4C905834291398a8dD140fa4A9AA9521f07"  # Kryptomon wallet
+ADDRESS_V1 = "0x50a1b4C905834291398a8dD140fa4A9AA9521f07"  # Kryptomon wallet V1
+ADDRESS_V2 = "0xD3Be5e040e7a43588A679eFD0Ba4d416b11dFb40"  # Kryptomon wallet V2
 NFT_ADDRESS = "0x7a16658f04c32d2df40726e3028b600d585d99a5"  # Kryptomon NFT wallet
 LOTTERIES_TIMESTAMP = [
     1631444400,
@@ -36,10 +37,11 @@ def get_transactions(week):
         week = max(
             [i for i, time in enumerate(LOTTERIES_TIMESTAMP, 1) if now - time > 0]
         )
+    address = ADDRESS_V1 if week == 1 else ADDRESS_V2
     params = {
         "module": "account",
         "action": "txlist",
-        "address": ADDRESS,
+        "address": address,
         "sort": "desc",
         "apikey": API_KEY,
     }
@@ -56,15 +58,16 @@ def get_transactions(week):
     return week, lottery
 
 
-def get_tickets_blocks(blocks):
+def get_tickets_blocks(blocks, week):
     """Get data from transactions block"""
+    address = ADDRESS_V1 if week == 1 else ADDRESS_V2
     params = {
         "module": "logs",
         "action": "getLogs",
         "fromBlock": blocks[-1],
         "toBlock": blocks[0],
         "topic0": "0xc3d9208034e72b3cd2d1b5f1e9911ebc02e7be185fca8924062b57bd5464afd4",
-        "address": ADDRESS,
+        "address": address,
         "apikey": API_KEY,
     }
     response = get("https://api.bscscan.com/api", params=params).json().get("result")
@@ -93,10 +96,10 @@ def winners(lottery):
 # ---- Overview
 
 
-def lottery_overview(lottery):
+def lottery_overview(lottery, week):
     """Get unique wallets"""
     overview = dict()
-    transactions = get_tickets_blocks([block for block, _ in lottery])
+    transactions = get_tickets_blocks([block for block, _ in lottery], week)
     for block, who in lottery:
         bet_ticket = overview.get(who, 0)
         if block in transactions:
@@ -222,7 +225,7 @@ def main():
         exit()
 
     # print overview
-    overview = lottery_overview(lottery)
+    overview = lottery_overview(lottery, week)
     tickets, players = sum(overview.values()), len(overview)
     total_eggs = floor(players / 10)
     paint(
