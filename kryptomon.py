@@ -136,7 +136,7 @@ def winner_summary(overview, winners):
 def win_probability(ticket_bet, total_tickets, players):
     """Calculate a probability estimation of victory"""
     eggs = floor(players / 10)
-    mean_tickets_bet = total_tickets / players
+    mean_tickets_bet = (total_tickets - ticket_bet) / (players - 1)
     # mean estimation about total tickets burnt from other eggs
     total_less_mean = total_tickets - (eggs * mean_tickets_bet / 2)
     return 1 - ((total_less_mean - ticket_bet) / total_less_mean) ** eggs
