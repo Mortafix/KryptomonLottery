@@ -6,7 +6,7 @@ from re import match
 from colorifix.colorifix import paint
 from requests import get
 
-API_KEY = "API_KEY"
+API_KEY = "W7T86S5W1EMKD4CGNPIU6QKSAUFQS5TADX"
 ADDRESS_V1 = "0x50a1b4C905834291398a8dD140fa4A9AA9521f07"  # Kryptomon wallet V1
 ADDRESS_V2 = "0xD3Be5e040e7a43588A679eFD0Ba4d416b11dFb40"  # Kryptomon wallet V2
 NFT_ADDRESS = "0x7a16658f04c32d2df40726e3028b600d585d99a5"  # Kryptomon NFT wallet
@@ -250,7 +250,7 @@ def main():
     egg_winners = winners(week)
     eggs_claimed = len(egg_winners)
     if egg_winners:
-        paint("\n---- [@bold @underline]WINNERS[/] ----", True)
+        paint(f"\n---- [@bold @underline]Week [#blue]{week}[/#] WINNERS[/] ----", True)
         paint(f"Eggs claimed: [#red]{eggs_claimed}[/] of [@bold]{total_eggs}[/]", True)
         winners_summary = winner_summary(overview, egg_winners)
         print_winners(summary, winners_summary)
