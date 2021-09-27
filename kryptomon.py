@@ -1,6 +1,8 @@
 from argparse import ArgumentParser
 from datetime import datetime
+from json import load
 from math import floor
+from os.path import exists
 from re import match
 
 from colorifix.colorifix import paint
@@ -76,7 +78,7 @@ def get_tickets_blocks(blocks, week):
     }
 
 
-def winners(lottery):
+def get_winners(lottery):
     """Get winner from transactions"""
     params = {
         "module": "logs",
@@ -115,11 +117,11 @@ def lottery_summary(overview, my_wallet):
     return summary
 
 
-def winner_summary(overview, winners):
+def winner_summary(overview, winners, json_winners):
     wallets_win = [
-        (tickets, winners.get(wallet))
+        (tickets, winners.get(wallet) or json_winners.get(wallet))
         for wallet, tickets in overview.items()
-        if wallet in winners
+        if wallet in winners or wallet in json_winners
     ]
     winners_by_tickets = dict()
     for tickets, generation in sorted(wallets_win):
@@ -128,6 +130,19 @@ def winner_summary(overview, winners):
         else:
             winners_by_tickets[tickets] += [generation]
     return winners_by_tickets
+
+
+# ---- JSON winners
+
+
+def get_json_winners():
+    if not exists("winners.json"):
+        return dict()
+    winners = load(open("winners.json", "rb")).get("claims")
+    return {
+        key.lower(): int(winners.get(key).get("generation"), 16)
+        for key in winners.keys()
+    }
 
 
 # ---- Probability
@@ -247,12 +262,13 @@ def main():
         )
 
     # print winners
-    egg_winners = winners(week)
+    json_winners = get_json_winners()
+    egg_winners = get_winners(week)
     eggs_claimed = len(egg_winners)
     if egg_winners:
         paint(f"\n---- [@bold @underline]Week [#blue]{week}[/#] WINNERS[/] ----", True)
         paint(f"Eggs claimed: [#red]{eggs_claimed}[/] of [@bold]{total_eggs}[/]", True)
-        winners_summary = winner_summary(overview, egg_winners)
+        winners_summary = winner_summary(overview, egg_winners, json_winners)
         print_winners(summary, winners_summary)
     print()
 
