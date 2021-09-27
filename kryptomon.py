@@ -89,7 +89,7 @@ def winners(lottery):
     return {
         "0x" + data.get("data")[-104:-64]: int(data.get("data")[-64:])
         for data in response
-        if int(data.get("data")[2:66], 0) == lottery - 1
+        if int(data.get("data")[2:66], 16) == lottery - 1
     }
 
 
