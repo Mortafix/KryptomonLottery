@@ -11,10 +11,11 @@ from requests import get
 API_KEY = "API_KEY"
 ADDRESS_V1 = "0x50a1b4C905834291398a8dD140fa4A9AA9521f07"  # Kryptomon wallet V1
 ADDRESS_V2 = "0xD3Be5e040e7a43588A679eFD0Ba4d416b11dFb40"  # Kryptomon wallet V2
+ADDRESS_V3 = "0xC43CA243d562939aF0778f06246B17efc97D3B5e"  # kryptomon wallet V3
 NFT_ADDRESS = "0x7a16658f04c32d2df40726e3028b600d585d99a5"  # Kryptomon NFT wallet
 LOTTERIES_TIMESTAMP = [
-    1631444400,
-    1632124800,
+    1631444400,  # staking V1
+    1632124800,  # staking V2
     1632729600,
     1633334400,
     1633939200,
@@ -22,6 +23,9 @@ LOTTERIES_TIMESTAMP = [
     1635148800,
     1635757200,
     1636362000,
+    1636977600,  # staking V3
+    1637582400,
+    1638187200,
 ]
 
 # ---- Info lottery API
@@ -39,7 +43,7 @@ def get_transactions(week):
         week = max(
             [i for i, time in enumerate(LOTTERIES_TIMESTAMP, 1) if now - time > 0]
         )
-    address = ADDRESS_V1 if week == 1 else ADDRESS_V2
+    address = (week == 1 and ADDRESS_V1) or (week <= 8 and ADDRESS_V2) or ADDRESS_V3
     params = {
         "module": "account",
         "action": "txlist",
@@ -62,7 +66,7 @@ def get_transactions(week):
 
 def get_tickets_blocks(blocks, week):
     """Get data from transactions block"""
-    address = ADDRESS_V1 if week == 1 else ADDRESS_V2
+    address = (week == 1 and ADDRESS_V1) or (week <= 8 and ADDRESS_V2) or ADDRESS_V3
     params = {
         "module": "logs",
         "action": "getLogs",
@@ -217,26 +221,42 @@ def argparsing():
         help="personal wallet address",
         metavar=("WALLET"),
     )
+    parser.add_argument(
+        "-v",
+        "--version",
+        type=int,
+        default=3,
+        help="version staking (v2 or v3)",
+        metavar=("VERSION"),
+    )
     return parser
 
 
 def main():
     parser = argparsing()
     args = parser.parse_args()
+    version = args.version
     print()
-    if not (0 <= args.lottery <= 8):
-        paint("[#red]Week MUST be between 1 and 8!\n", True)
+    if version not in (2, 3):
+        paint("[#red]Staking version MUST be 2 or 3!\n", True)
+        exit()
+    if (version == 2 and not (0 <= args.lottery <= 8)) or not (0 <= args.lottery <= 3):
+        if version == 2:
+            paint("[#red]Week MUST be between 1 and 8 (Staking V2)!\n", True)
+        else:
+            paint("[#red]Week MUST be between 1 and 3 (Staking V3)!\n", True)
         exit()
 
     # print transactions
     week, lottery = get_transactions(args.lottery)
+    real_week = version == 2 and week or week - 8
     message = (
-        "[@underline @bold #blue]Kryptomon Lottery\n"
-        f"[/]Transactions found for week [#blue @bold]{week}[/]: [#red]{len(lottery)}"
+        f"[@underline @bold #blue]Kryptomon Lottery (Staking V{version})\n"
+        f"[/]Transactions found for week [#blue @bold]{real_week}[/]: [#red]{len(lottery)}"
     )
     paint(message, True)
     if not lottery:
-        paint(f"Week [#blue @bold]{week}[/] NOT started yet!\n", True)
+        paint(f"Week [#blue @bold]{real_week}[/] NOT started yet!\n", True)
         exit()
 
     # print overview
@@ -266,7 +286,10 @@ def main():
     egg_winners = get_winners(week)
     eggs_claimed = len(egg_winners)
     if egg_winners:
-        paint(f"\n---- [@bold @underline]Week [#blue]{week}[/#] WINNERS[/] ----", True)
+        paint(
+            f"\n---- [@bold @underline]Week [#blue]{real_week}[/#] WINNERS[/] ----",
+            True,
+        )
         paint(f"Eggs claimed: [#red]{eggs_claimed}[/] of [@bold]{total_eggs}[/]", True)
         winners_summary = winner_summary(overview, egg_winners, json_winners)
         print_winners(summary, winners_summary)
