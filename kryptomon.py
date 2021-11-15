@@ -248,6 +248,8 @@ def main():
         exit()
 
     # print transactions
+    if version == 3 and args.lottery != 0:
+        args.lottery += 8
     week, lottery = get_transactions(args.lottery)
     real_week = version == 2 and week or week - 8
     message = (
@@ -287,7 +289,8 @@ def main():
     eggs_claimed = len(egg_winners)
     if egg_winners:
         paint(
-            f"\n---- [@bold @underline]Week [#blue]{real_week}[/#] WINNERS[/] ----",
+            f"\n---- [@bold @underline]Week [#blue]{real_week} (V{version})[/#] "
+            "WINNERS[/] ----",
             True,
         )
         paint(f"Eggs claimed: [#red]{eggs_claimed}[/] of [@bold]{total_eggs}[/]", True)
