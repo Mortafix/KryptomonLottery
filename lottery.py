@@ -69,7 +69,7 @@ def main():
     lottery, lottery_num, from_date, to_date = get_transactions(week, year)
     ppaint(
         f"[@underline @bold #blue]Kryptomon Lottery Staking[/@] ({lottery_num}°)[/]\n"
-        f"[#gray]# {from_date:%d.%m.%Y} -> {to_date:%d.%m.%Y}[/]\nTransactions "
+        f"[#gray]# {from_date:%d.%m.%Y} -> {to_date:%d.%m.%Y}[/]\n\nTransactions "
         f"found for [#blue @bold]w{week}:{year}[/]: [#magenta]{len(lottery)}"
     )
     if not lottery:

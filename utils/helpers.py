@@ -76,7 +76,7 @@ def get_winners(date, lottery):
     return {
         hex(int(data.get("data")[-104:-64], 16)): int(data.get("data")[-64:], 16)
         for data in response
-        if int(data.get("data")[2:66], 16) == lottery - 5
+        if int(data.get("data")[2:66], 16) == lottery - 2
     }
 
 
